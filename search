@@ -50,7 +50,10 @@ done
 
 find . \( -type d -a \( $repo_ign \)  \) -prune -o \
        \( -type f -name "$glob" -print0 \) |
-GREP_COLOR="1;33;40" \
-  xargs -r0 grep -rnHi $colour $search_options -- "$1" |
-  #ignore the commented lines
-  grep $colour --perl-regexp --invert-match '(?:^;)|(?:^\s*/\*.*\*/)|(?:^\s*#|//|\*)'
+    GREP_COLOR="1;33;40" \
+    xargs -r0 grep -rnHi $colour $search_options -- "$1" |
+    #ignore the commented lines
+    grep $colour --perl-regexp --invert-match '(?:^;)|(?:^\s*/\*.*\*/)|(?:^\s*#|//|\*)' |
+    # preview
+    fzf --delimiter : --preview "nl -bp$1 {1}" --preview-window '+{2}-5'
+
