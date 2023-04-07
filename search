@@ -1,0 +1,56 @@
+#!/bin/sh
+
+# find a string in the current directory and below
+# while automatically ignoring repository metadata.
+
+usage() {
+(
+echo "Usage:    `basename $0` ['search_options'] search_expr [file wildcard]
+examples: `basename $0` 'isLoaded' '*.[php]'                    # fixed string search -w
+          `basename $0` '(account_entity|isLoaded)' '*.[php]'   # regular expression search -E
+          `basename $0` '-F' 'isLoaded(' '*.[php]'              # force fixed string search
+          `basename $0` '-L -F' 'isLoaded(' '*.[php]'           # search for files not having the search criteria"
+) >&2
+    exit 1
+}
+
+# Show me the usage when something is missing
+if [ $# -eq 0 ] || [ $# -gt 3 ]; then
+    usage
+fi
+
+# life is full of colours and so is search meaningful
+echo | grep --color=always "" >/dev/null 2>&1 && colour="--color=always"
+
+if [ $# -eq 1 ]; then
+    # search for everything instead of a specific file extension
+    glob='*'
+elif [ $# -eq 2 ]; then
+    glob="$2"
+elif [ $# -eq 3 ]; then
+    search_options="$1"
+    shift
+    glob="$2"
+fi
+
+if ! printf "%s\n" "$search_options" |
+     grep -E -- "-([EFGP]|regexp|fixed)" >/dev/null 2>&1; then
+    # do we need to search on REGEXP pattern ?
+    echo "$1" | grep '[.[\()*+?{|^$]' >/dev/null && type="-E" || type="-F"
+    search_options="$search_options $type"
+fi
+
+# prunning is faster then using --exclude-dir
+# exclude basically looks for a pattern
+# TODO: exclude based on the file extension provided $glob
+repodirs=".git vendor third_party"
+for dir in $repodirs; do
+    repo_ign="$repo_ign${repo_ign+" -o "}-name $dir"
+done
+
+find . \( -type d -a \( $repo_ign \)  \) -prune -o \
+       \( -type f -name "$glob" -print0 \) |
+GREP_COLOR="1;33;40" \
+  xargs -r0 grep -rnHi $colour $search_options -- "$1" |
+  #ignore the commented lines
+  grep $colour --perl-regexp --invert-match '(?:^;)|(?:^\s*/\*.*\*/)|(?:^\s*#|//|\*)'
